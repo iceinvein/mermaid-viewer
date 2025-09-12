@@ -35,7 +35,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
-      - name: Configure Pages
+      - name: Configure Pages (enable if PAT provided)
+        if: ${{ secrets.PAGES_TOKEN != '' }}
+        uses: actions/configure-pages@v5
+        with:
+          token: ${{ secrets.PAGES_TOKEN }}
+          enablement: true
+
+      - name: Configure Pages (no enablement)
+        if: ${{ secrets.PAGES_TOKEN == '' }}
         uses: actions/configure-pages@v5
 
       - name: Build
