@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      PAGES_TOKEN: ${{ secrets.PAGES_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,14 +38,14 @@ jobs:
         run: pnpm install --frozen-lockfile=false
 
       - name: Configure Pages (enable if PAT provided)
-        if: ${{ secrets.PAGES_TOKEN != '' }}
+        if: ${{ env.PAGES_TOKEN != '' }}
         uses: actions/configure-pages@v5
         with:
-          token: ${{ secrets.PAGES_TOKEN }}
+          token: ${{ env.PAGES_TOKEN }}
           enablement: true
 
       - name: Configure Pages (no enablement)
-        if: ${{ secrets.PAGES_TOKEN == '' }}
+        if: ${{ env.PAGES_TOKEN == '' }}
         uses: actions/configure-pages@v5
 
       - name: Build
