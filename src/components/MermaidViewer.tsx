@@ -19,6 +19,15 @@ const EXAMPLES: Record<string, string> = {
   Flowchart: `flowchart TD\n  A[Start] --> B{Is it working?}\n  B -- Yes --> C[Ship it]\n  B -- No  --> D[Fix it]\n  D --> B`,
   Sequence: `sequenceDiagram\n  Alice->>John: Hello John, how are you?\n  John-->>Alice: Great!`,
   Class: `classDiagram\n  class Animal{\n    +int age\n    +String gender\n    +isMammal() boolean\n  }\n  class Duck{\n    +String beakColor\n    +swim() void\n  }\n  Animal <|-- Duck`,
+  Gantt: `gantt\n  title Project Timeline\n  dateFormat YYYY-MM-DD\n  section Planning\n  Spec :done, 2024-01-01, 3d\n  Design :active, 2024-01-04, 4d\n  section Implementation\n  Feature A : 2024-01-08, 5d\n  Testing : 2024-01-13, 3d`,
+  Pie: `pie showData\n  title Pets adopted by year\n  "Dogs" : 386\n  "Cats" : 85\n  "Rats" : 15`,
+  "User Journey": `journey\n  title User journey for checkout\n  section Browse\n    Visitor: 5: Explore products\n  section Checkout\n    Visitor: 3: Fill cart\n    Visitor: 2: Pay`,
+  Git: `gitGraph\n  commit\n  branch feature\n  checkout feature\n  commit\n  checkout main\n  merge feature`,
+  ERD: `erDiagram\n  CUSTOMER ||--o{ ORDER : places\n  ORDER ||--|{ LINE_ITEM : contains\n  CUSTOMER {\n    string name\n    string email\n  }`,
+  XY: `xychart-beta\n  title "Monthly Revenue"\n  x-axis [Jan, Feb, Mar, Apr]\n  y-axis "USD"\n  line [1.2, 2.3, 1.8, 3.2]\n  bar [1, 2, 3, 4]`,
+  Treemap: `treemap-beta\n"Fruits"\n  "Citrus"\n    "Orange": 6\n    "Lemon": 4\n  "Berries"\n    "Strawberry": 5\n"Vegetables"\n  "Leafy"\n    "Spinach": 3`,
+  Kanban: `kanban\n  todo[Todo]\n    t1[Write spec] @{assigned: "Alice", ticket: "ABC-123"}\n    t2[Design UI]\n  doing[In Progress]\n    t3[Implement]\n  done[Done]\n    t4[Test] @{assigned: "Bob", priority: "High"}`,
+  Architecture: `architecture-beta\n  group web(cloud)[Web]\n  service api(server)[API] in web\n  service db(database)[DB]\n  api:R --> L:db`,
 };
 
 export default function MermaidViewer({ dark = false }: { dark?: boolean }) {
@@ -98,7 +107,7 @@ export default function MermaidViewer({ dark = false }: { dark?: boolean }) {
           [/"([^"\\]|\\.)*"/, "string"],
           [/'([^'\\]|\\.)*'/, "string"],
           [/\b\d+(\.\d+)?\b/, "number"],
-          [/(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|stateDiagram-v2|gantt|pie|journey|gitGraph|mindmap|timeline|quadrantChart|erDiagram|requirementDiagram|c4context|c4container|c4component|c4deployment|c4dynamic|c4relationship|info)\b/, "keyword"],
+          [/(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|stateDiagram-v2|gantt|pie|journey|gitGraph|mindmap|timeline|quadrantChart|erDiagram|requirementDiagram|c4context|c4container|c4component|c4deployment|c4dynamic|c4relationship|info|kanban|architecture-beta|xychart-beta|treemap-beta)\b/, "keyword"],
           [/(subgraph|end|direction|linkStyle|style|click|classDef|class|accTitle|accDescr|accTitle:|accDescr:|alt|opt|loop|par|rect|else|and|note|activate|deactivate|participant|actor|state|section|title|dateFormat|axisFormat|interpolate)\b/, "keyword"],
           [/\b(TD|LR|RL|BT)\b/, "keyword"],
           [/(-->|--x|--o|==>|-\.\->|\.-\->|==x|==o|===|--)/, "operator"],
@@ -394,8 +403,11 @@ export default function MermaidViewer({ dark = false }: { dark?: boolean }) {
                 language="mermaid"
                 beforeMount={handleBeforeMount}
                 options={{
+                      fixedOverflowWidgets: true,
+
                   wordWrap: "on",
                   minimap: { enabled: false },
+                  padding: { top: 24, bottom: 16 },
                   fontSize: 13,
                   lineHeight: 20,
                   fontFamily:

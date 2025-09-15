@@ -1,3 +1,8 @@
 @import "tailwindcss";
 
 @config "../../tailwind.config.js"
+
+/* Monaco editor UX tweaks: prevent hover/suggest clipping */
+.monaco-hover { z-index: 9999 !important; }
+.monaco-editor .overflow-guard { overflow: visible !important; }
+.parameter-hints-widget, .suggest-widget { z-index: 9999 !important; }
