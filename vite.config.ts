@@ -5,8 +5,9 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS && process.env.GITHUB_REPOSITORY
-    ? `/${process.env.GITHUB_REPOSITORY.split("/")[1]}/`
-    : "/",
+  base:
+    process.env.GITHUB_ACTIONS && process.env.GITHUB_REPOSITORY
+      ? `/${process.env.GITHUB_REPOSITORY.split("/")[1]}/`
+      : "/",
   plugins: [react(), tsconfigPaths(), tailwindcss()],
 });

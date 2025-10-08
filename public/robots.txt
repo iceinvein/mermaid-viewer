@@ -1,0 +1,28 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://dikrana.github.io/mermaid-viewer/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1
+
+# Allow all search engines to index the main content
+Allow: /index.html
+Allow: /*.css
+Allow: /*.js
+Allow: /*.svg
+Allow: /*.png
+Allow: /*.ico
+
+# Block unnecessary files
+Disallow: /node_modules/
+Disallow: /src/
+Disallow: /.git/
+Disallow: /*.log
+Disallow: /package*.json
+Disallow: /tsconfig*.json
+Disallow: /vite.config.ts
+Disallow: /tailwind.config.js
+Disallow: /postcss.config.js
+Disallow: /eslint.config.mjs

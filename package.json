@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint --fix",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seo:check": "node scripts/seo-check.js",
+    "seo:favicons": "node scripts/generate-favicons.js"
   },
   "dependencies": {
     "@heroui/button": "2.2.26",
