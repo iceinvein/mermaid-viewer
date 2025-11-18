@@ -12,6 +12,7 @@ import { Link } from "@heroui/link";
 import { Slider } from "@heroui/slider";
 import { Switch } from "@heroui/switch";
 import Editor from "@monaco-editor/react";
+import * as htmlToImage from "html-to-image";
 import {
 	compressToEncodedURIComponent,
 	decompressFromEncodedURIComponent,
@@ -273,9 +274,42 @@ export default function MermaidViewer({ dark = false }: { dark?: boolean }) {
 		URL.revokeObjectURL(url);
 	}
 
+	function sanitizeSvgForExport(svgString: string): string {
+		try {
+			// Simple string-based sanitization to convert HTML to XHTML
+			// This is more reliable than DOM parsing for mixed HTML/SVG content
+			let sanitized = svgString;
+
+			// Convert common self-closing HTML tags to XML format
+			sanitized = sanitized
+				.replace(/<br\s*>/gi, "<br/>")
+				.replace(/<hr\s*>/gi, "<hr/>")
+				.replace(/<img(\s[^>]*)?>/gi, "<img$1/>")
+				.replace(/<input(\s[^>]*)?>/gi, "<input$1/>")
+				.replace(/<area(\s[^>]*)?>/gi, "<area$1/>")
+				.replace(/<base(\s[^>]*)?>/gi, "<base$1/>")
+				.replace(/<col(\s[^>]*)?>/gi, "<col$1/>")
+				.replace(/<embed(\s[^>]*)?>/gi, "<embed$1/>")
+				.replace(/<link(\s[^>]*)?>/gi, "<link$1/>")
+				.replace(/<meta(\s[^>]*)?>/gi, "<meta$1/>")
+				.replace(/<param(\s[^>]*)?>/gi, "<param$1/>")
+				.replace(/<source(\s[^>]*)?>/gi, "<source$1/>")
+				.replace(/<track(\s[^>]*)?>/gi, "<track$1/>")
+				.replace(/<wbr\s*>/gi, "<wbr/>");
+
+			return sanitized;
+		} catch (error) {
+			console.error("Error sanitizing SVG:", error);
+			// Fallback to original string if sanitization fails
+			return svgString;
+		}
+	}
+
 	async function exportSVG() {
 		if (!svg) return;
-		download("diagram.svg", new Blob([svg], { type: "image/svg+xml" }));
+		const sanitizedSvg = sanitizeSvgForExport(svg);
+
+		download("diagram.svg", new Blob([sanitizedSvg], { type: "image/svg+xml" }));
 	}
 
 	function getSvgSize(svgText: string): { width: number; height: number } {
@@ -308,89 +342,150 @@ export default function MermaidViewer({ dark = false }: { dark?: boolean }) {
 
 	async function exportPNG(scale = pngScale) {
 		if (!svg) return;
-		const { width: baseW, height: baseH } = getSvgSize(svg);
-		const img = new Image();
-		const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
-		await new Promise<void>((resolve, reject) => {
-			img.onload = () => resolve();
-			img.onerror = (e) => reject(e);
-			img.src = url;
-		});
-		const width = Math.max(1, Math.round(baseW * scale));
-		const height = Math.max(1, Math.round(baseH * scale));
-		const canvas = document.createElement("canvas");
+		try {
+			const svgElement = containerRef.current?.querySelector("svg");
 
-		canvas.width = width;
-		canvas.height = height;
-		const ctx = canvas.getContext("2d");
+			if (!svgElement) {
+				throw new Error("SVG element not found in the preview.");
+			}
 
-		if (!ctx) return;
-		let bg = getComputedStyle(document.documentElement)
-			.getPropertyValue("--background")
-			.trim();
+			const { width: baseW, height: baseH } = getSvgSize(svg);
+			const width = Math.max(1, Math.round(baseW * scale));
+			const height = Math.max(1, Math.round(baseH * scale));
 
-		if (!bg) bg = "#ffffff";
-		ctx.fillStyle = bg;
-		ctx.fillRect(0, 0, width, height);
-		ctx.drawImage(img, 0, 0, width, height);
-		URL.revokeObjectURL(url);
-		const blob: Blob | null = await new Promise((r) =>
-			canvas.toBlob((b) => r(b), "image/png"),
-		);
+			// Check canvas size limits (most browsers limit to ~16384x16384)
+			const MAX_CANVAS_SIZE = 16384;
+			if (width > MAX_CANVAS_SIZE || height > MAX_CANVAS_SIZE) {
+				alert(
+					`Canvas size too large (${width}x${height}). Try reducing the scale or simplifying the diagram.`,
+				);
+				return;
+			}
 
-		if (blob) download("diagram.png", blob);
+			// Get background color
+			let bg = getComputedStyle(document.documentElement)
+				.getPropertyValue("--background")
+				.trim();
+
+			if (!bg) bg = "#ffffff";
+
+			// Clone SVG to avoid modifying the original
+			const clonedSvg = svgElement.cloneNode(true) as SVGElement;
+
+			// Fix: Override color on foreignObject HTML elements to ensure dark text
+			// In dark mode, the CSS color property is light gray, but we need black for export
+			const foreignObjects = clonedSvg.querySelectorAll("foreignObject");
+			foreignObjects.forEach((fo) => {
+				const htmlElements = fo.querySelectorAll("div, span, p");
+				htmlElements.forEach((el) => {
+					(el as HTMLElement).style.color = "#000000";
+				});
+			});
+
+			// Use html-to-image with fontEmbedCSS: '' to skip font embedding and avoid CORS
+			const dataUrl = await htmlToImage.toPng(clonedSvg as unknown as HTMLElement, {
+				width,
+				height,
+				backgroundColor: "#ffffff",
+				pixelRatio: 1,
+				cacheBust: true,
+				fontEmbedCSS: '', // Skip font embedding to avoid CORS errors
+			});
+
+			// Convert data URL to blob
+			const response = await fetch(dataUrl);
+			const blob = await response.blob();
+
+			download("diagram.png", blob);
+		} catch (error) {
+			console.error("PNG export failed:", error);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			alert(`Failed to export PNG: ${errorMessage}`);
+		}
 	}
 
 	async function copySVG() {
 		if (!svg) return;
-		await navigator.clipboard.writeText(svg);
+		const sanitizedSvg = sanitizeSvgForExport(svg);
+		await navigator.clipboard.writeText(sanitizedSvg);
 	}
 
 	async function copyPNG() {
 		if (!svg) return;
-		const { width: baseW, height: baseH } = getSvgSize(svg);
-		const img = new Image();
-		const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
-		await new Promise<void>((resolve, reject) => {
-			img.onload = () => resolve();
-			img.onerror = (e) => reject(e);
-			img.src = url;
-		});
-		const canvas = document.createElement("canvas");
-		const width = Math.max(1, Math.round(baseW));
-		const height = Math.max(1, Math.round(baseH));
+		try {
+			const svgElement = containerRef.current?.querySelector("svg");
 
-		canvas.width = width;
-		canvas.height = height;
-		const ctx = canvas.getContext("2d");
+			if (!svgElement) {
+				throw new Error("SVG element not found in the preview.");
+			}
 
-		if (!ctx) return;
-		let bg = getComputedStyle(document.documentElement)
-			.getPropertyValue("--background")
-			.trim();
+			const { width: baseW, height: baseH } = getSvgSize(svg);
+			const width = Math.max(1, Math.round(baseW));
+			const height = Math.max(1, Math.round(baseH));
 
-		if (!bg) bg = "#ffffff";
-		ctx.fillStyle = bg;
-		ctx.fillRect(0, 0, width, height);
-		ctx.drawImage(img, 0, 0, width, height);
-		URL.revokeObjectURL(url);
-		const blob: Blob | null = await new Promise((r) =>
-			canvas.toBlob((b) => r(b), "image/png"),
-		);
-
-		if (!blob) return;
-		if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
-			try {
-				await navigator.clipboard.write([
-					new ClipboardItem({ "image/png": blob }),
-				]);
-
+			// Check canvas size limits
+			const MAX_CANVAS_SIZE = 16384;
+			if (width > MAX_CANVAS_SIZE || height > MAX_CANVAS_SIZE) {
+				alert(
+					`Canvas size too large (${width}x${height}). Try simplifying the diagram.`,
+				);
 				return;
-			} catch {}
+			}
+
+			// Get background color
+			let bg = getComputedStyle(document.documentElement)
+				.getPropertyValue("--background")
+				.trim();
+
+			if (!bg) bg = "#ffffff";
+
+			// Clone SVG to avoid modifying the original
+			const clonedSvg = svgElement.cloneNode(true) as SVGElement;
+
+			// Fix: Override color on foreignObject HTML elements to ensure dark text
+			// In dark mode, the CSS color property is light gray, but we need black for export
+			const foreignObjects = clonedSvg.querySelectorAll("foreignObject");
+			foreignObjects.forEach((fo) => {
+				const htmlElements = fo.querySelectorAll("div, span, p");
+				htmlElements.forEach((el) => {
+					(el as HTMLElement).style.color = "#000000";
+				});
+			});
+
+			// Use html-to-image with fontEmbedCSS: '' to skip font embedding and avoid CORS
+			const dataUrl = await htmlToImage.toPng(clonedSvg as unknown as HTMLElement, {
+				width,
+				height,
+				backgroundColor: "#ffffff",
+				pixelRatio: 1,
+				cacheBust: true,
+				fontEmbedCSS: '', // Skip font embedding to avoid CORS errors
+			});
+
+			// Convert data URL to blob
+			const response = await fetch(dataUrl);
+			const blob = await response.blob();
+
+			if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+				try {
+					await navigator.clipboard.write([
+						new ClipboardItem({ "image/png": blob }),
+					]);
+
+					return;
+				} catch (clipboardError) {
+					console.warn("Clipboard write failed, falling back to download:", clipboardError);
+				}
+			}
+
+			download("diagram.png", blob);
+		} catch (error) {
+			console.error("PNG copy failed:", error);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			alert(`Failed to copy PNG: ${errorMessage}`);
 		}
-		download("diagram.png", blob);
 	}
 
 	function copyCode() {
