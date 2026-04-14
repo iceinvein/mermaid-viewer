@@ -1,7 +1,424 @@
 @import "tailwindcss";
 @config "../../tailwind.config.js";
 
-/* Monaco editor UX tweaks: prevent hover/suggest clipping */
+/* =========================================================================
+   Workshop / drafting-table token system.
+   Warm paper neutrals tinted ~75 hue. Single oxidized-copper accent.
+   60 paper / 30 ink-and-pencil / 10 copper.
+   ========================================================================= */
+
+:root {
+	/* Surfaces */
+	--paper: oklch(0.985 0.006 75);
+	--workbench: oklch(0.965 0.008 75);
+	--workbench-inset: oklch(0.945 0.01 75);
+	--rule: oklch(0.9 0.008 75);
+	--rule-soft: oklch(0.94 0.006 75);
+
+	/* Type */
+	--ink: oklch(0.18 0.012 75);
+	--graphite: oklch(0.42 0.012 75);
+	--pencil: oklch(0.58 0.01 75);
+	--chalk: oklch(0.74 0.008 75);
+
+	/* Accent: oxidized copper. Used sparingly. */
+	--copper: oklch(0.55 0.18 35);
+	--copper-soft: oklch(0.92 0.05 35);
+	--copper-press: oklch(0.46 0.16 33);
+
+	/* Status */
+	--rust: oklch(0.5 0.18 28);
+	--moss: oklch(0.46 0.1 145);
+
+	/* Type system */
+	--font-display: "Erode", "Iowan Old Style", "Hoefler Text", Georgia, serif;
+	--font-body: "Switzer", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+	--font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Mono", "JetBrains Mono", monospace;
+
+	/* Spacing rhythm: 4pt scale, semantic */
+	--space-xs: 0.25rem;
+	--space-sm: 0.5rem;
+	--space-md: 0.75rem;
+	--space-lg: 1.25rem;
+	--space-xl: 2rem;
+	--space-2xl: 3.5rem;
+
+	color-scheme: light;
+}
+
+.dark {
+	--paper: oklch(0.16 0.01 75);
+	--workbench: oklch(0.205 0.012 75);
+	--workbench-inset: oklch(0.235 0.012 75);
+	--rule: oklch(0.3 0.012 75);
+	--rule-soft: oklch(0.25 0.012 75);
+
+	--ink: oklch(0.94 0.006 75);
+	--graphite: oklch(0.78 0.008 75);
+	--pencil: oklch(0.62 0.012 75);
+	--chalk: oklch(0.4 0.012 75);
+
+	--copper: oklch(0.7 0.16 38);
+	--copper-soft: oklch(0.32 0.07 38);
+	--copper-press: oklch(0.62 0.18 36);
+
+	--rust: oklch(0.65 0.17 28);
+	--moss: oklch(0.62 0.1 145);
+
+	color-scheme: dark;
+}
+
+/* HeroUI's variables are defined in HSL-triplet form and consumed by
+   hsl(var(--heroui-*) / <alpha>). Overriding them with oklch() or hex
+   values silently breaks to transparent. The heroui() plugin in
+   tailwind.config.js already emits the correct triplets for our workshop
+   palette, so we do not touch those variables here. */
+
+html,
+body,
+#root {
+	min-height: 100%;
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--font-body);
+	font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+body {
+	font-size: 15px;
+	line-height: 1.55;
+}
+
+/* Display family for headings + brandmark, deployed sparingly. */
+.font-display {
+	font-family: var(--font-display);
+	font-feature-settings: "ss01", "dlig";
+	letter-spacing: -0.01em;
+}
+
+.font-mono {
+	font-family: var(--font-mono);
+}
+
+/* Drafting paper: subtle grain on the preview surface so the diagram
+   sits on something tactile rather than a flat fill. SVG noise filter
+   is one of the few legitimate uses of decoration here. Tuned for 2x
+   DPR so retina displays still show the texture; 1x displays get a
+   slightly denser pattern which reads the same. */
+.paper-grain {
+	background-color: var(--paper);
+	background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3' stitchTiles='stitch' seed='7'/><feColorMatrix values='0 0 0 0 0.12  0 0 0 0 0.11  0 0 0 0 0.09  0 0 0 0.11 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+	background-size: 220px 220px;
+	background-blend-mode: multiply;
+}
+
+@media (min-resolution: 1.5dppx) {
+	.paper-grain {
+		background-size: 110px 110px;
+	}
+}
+
+.dark .paper-grain {
+	background-color: var(--paper);
+	background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3' stitchTiles='stitch' seed='7'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 0.94  0 0 0 0 0.84  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+	background-blend-mode: screen;
+}
+
+/* Tick-mark resize handle: graphite line, copper crosshair on press. */
+.split-handle {
+	position: relative;
+	background: transparent;
+	cursor: col-resize;
+	transition: background 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.split-handle::before {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background: var(--rule);
+	transform: translateX(-50%);
+	transition: background 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.split-handle::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 11px;
+	height: 1px;
+	background: var(--pencil);
+	transform: translate(-50%, -50%);
+	box-shadow: 0 -3px 0 var(--pencil), 0 3px 0 var(--pencil);
+	opacity: 0;
+	transition: opacity 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.split-handle:hover::after,
+.split-handle:focus-visible::after {
+	opacity: 1;
+}
+.split-handle[data-dragging="true"]::before,
+.split-handle[data-dragging="true"]::after {
+	background: var(--copper);
+}
+.split-handle:focus-visible {
+	outline: none;
+}
+
+/* Inline status microtype, not a chip. */
+.status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	display: inline-block;
+}
+
+/* Toolbar affordance: secondary buttons read as buttons, not labels.
+   Pill-shaped, hairline border, visible hover. Keeps the small-caps
+   mono voice of the workshop without disappearing into the surface. */
+.tool-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--graphite);
+	background: transparent;
+	border: 1px solid var(--rule);
+	border-radius: 999px;
+	padding: 0.25rem 0.625rem;
+	line-height: 1.35;
+	height: 28px;
+	transition:
+		color 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		background 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		border-color 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.tool-btn:hover {
+	color: var(--ink);
+	background: var(--workbench);
+	border-color: var(--chalk);
+}
+.tool-btn:active {
+	background: var(--workbench-inset);
+}
+.tool-btn[aria-expanded="true"] {
+	color: var(--ink);
+	background: var(--workbench);
+	border-color: var(--chalk);
+}
+
+/* Primary export cluster: copper fill, hairline inner separator, sharp
+   focus ring. Needs to visibly dominate the secondary toolbar. */
+.tool-primary {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--paper);
+	background: var(--copper);
+	border: 1px solid var(--copper);
+	padding: 0.35rem 0.75rem;
+	line-height: 1.35;
+	height: 28px;
+	transition:
+		background 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		border-color 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.tool-primary:hover {
+	background: var(--copper-press);
+	border-color: var(--copper-press);
+}
+.tool-primary-split {
+	background: var(--copper);
+	color: var(--paper);
+	border: 1px solid var(--copper);
+	border-left-color: color-mix(in oklch, var(--copper-press) 70%, transparent);
+	padding: 0 0.5rem;
+	height: 28px;
+	font-size: 11px;
+	transition: background 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.tool-primary-split:hover {
+	background: var(--copper-press);
+}
+.tool-cluster {
+	display: inline-flex;
+	align-items: stretch;
+	border-radius: 6px;
+	overflow: hidden;
+	box-shadow: 0 1px 0 color-mix(in oklch, var(--ink) 8%, transparent);
+}
+
+/* Divider chip between toolbar groups. */
+.tool-div {
+	width: 1px;
+	height: 16px;
+	background: var(--rule);
+	display: inline-block;
+}
+
+/* Switch affordance: the default HeroUI switch reads as a rounded pill but
+   its off-state track blends into the workbench surface in both themes.
+   Bump the track border and make the thumb slightly larger. */
+[data-slot="wrapper"][role="switch"],
+[data-slot="wrapper"]:has(input[role="switch"]) {
+	outline: 1px solid var(--rule);
+	outline-offset: 0;
+}
+
+/* Fit-toggle pill label: stronger separation so the whole control reads as
+   one actionable unit. */
+.fit-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	border: 1px solid var(--rule);
+	border-radius: 999px;
+	padding: 0.1rem 0.5rem 0.1rem 0.25rem;
+	background: var(--paper);
+}
+.fit-toggle:hover {
+	border-color: var(--chalk);
+}
+.fit-toggle-label {
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--graphite);
+}
+
+/* Inline zoom readout: tabular numerals + border ties it to the slider. */
+.zoom-readout {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	color: var(--graphite);
+	border: 1px solid var(--rule);
+	border-radius: 999px;
+	padding: 0.1rem 0.5rem;
+	background: var(--paper);
+	min-width: 3.5rem;
+	text-align: center;
+}
+
+/* Toast: workshop-clipboard look. Respects iOS safe-area so it doesn't
+   hide under the home indicator or a virtual keyboard. */
+@keyframes toast-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+.toast {
+	animation: toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast-region {
+	position: fixed;
+	right: max(1.25rem, env(safe-area-inset-right));
+	bottom: max(1.25rem, env(safe-area-inset-bottom));
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	z-index: 1000;
+	pointer-events: none;
+	max-width: calc(100vw - 2rem);
+}
+.toast-action {
+	margin-left: 0.75rem;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--copper);
+	background: transparent;
+	border: none;
+	padding: 0 0.25rem;
+	cursor: pointer;
+}
+.toast-action:hover {
+	color: var(--copper-press);
+	text-decoration: underline;
+}
+
+/* First-time primer above the editor. Dismissible; rarely shown. A
+   leading copper ⌗ glyph plays the role a side-stripe would, without
+   triggering the workshop ban on thick left borders. */
+.primer {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	padding: 0.625rem 0.875rem;
+	background: var(--workbench);
+	border: 1px solid var(--rule);
+	border-radius: 6px;
+	font-size: 13px;
+	color: var(--graphite);
+	line-height: 1.5;
+}
+.primer-mark {
+	font-family: var(--font-display);
+	color: var(--copper);
+	font-size: 16px;
+	line-height: 1.2;
+	flex-shrink: 0;
+	padding-top: 1px;
+}
+.primer code {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	background: var(--workbench-inset);
+	color: var(--ink);
+	border: 1px solid var(--rule);
+	padding: 0.05rem 0.35rem;
+	border-radius: 3px;
+}
+.primer-dismiss {
+	margin-left: auto;
+	color: var(--pencil);
+	font-size: 16px;
+	line-height: 1;
+	padding: 0 0.35rem;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+.primer-dismiss:hover {
+	color: var(--ink);
+}
+
+/* Example glyph: monochrome mini-icon that sits next to each example
+   name in the dropdown. Stroked, workshop feel. Inherits currentColor. */
+.example-glyph {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 18px;
+	color: var(--graphite);
+	flex-shrink: 0;
+}
+[data-hover="true"] .example-glyph,
+[aria-selected="true"] .example-glyph {
+	color: var(--copper);
+}
+
+/* Monaco UX tweaks: prevent hover/suggest clipping. */
 .monaco-hover {
 	z-index: 9999 !important;
 }
@@ -11,4 +428,125 @@
 .parameter-hints-widget,
 .suggest-widget {
 	z-index: 9999 !important;
+}
+
+/* Selection: warm copper wash. */
+::selection {
+	background: var(--copper-soft);
+	color: var(--ink);
+}
+
+/* Focus ring: copper hairline, restrained. */
+:where(button, a, [role="button"], input, select, textarea):focus-visible {
+	outline: 2px solid var(--copper);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+/* Primer max-width: don't stretch across 1400px; keep copy dense. */
+.primer-title {
+	font-weight: 500;
+	color: var(--ink);
+}
+.primer-hint {
+	font-size: 12px;
+	color: var(--pencil);
+	margin-top: 0.15rem;
+}
+
+/* Command palette (⌘K): workshop-styled overlay search modal. */
+.palette-overlay {
+	position: fixed;
+	inset: 0;
+	background: color-mix(in oklch, var(--ink) 30%, transparent);
+	z-index: 2000;
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding-top: 18vh;
+}
+@supports not (background: color-mix(in oklch, black, transparent)) {
+	.palette-overlay {
+		background: rgba(0, 0, 0, 0.35);
+	}
+}
+.palette-box {
+	width: min(520px, calc(100vw - 2rem));
+	background: var(--paper);
+	border: 1px solid var(--rule);
+	border-radius: 10px;
+	box-shadow:
+		0 8px 32px color-mix(in oklch, var(--ink) 14%, transparent),
+		0 1px 0 color-mix(in oklch, var(--ink) 6%, transparent);
+	overflow: hidden;
+	animation: palette-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes palette-in {
+	from {
+		opacity: 0;
+		transform: scale(0.97) translateY(-6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+.palette-input {
+	width: 100%;
+	padding: 0.75rem 1rem;
+	font-family: var(--font-body);
+	font-size: 14px;
+	color: var(--ink);
+	background: transparent;
+	border: none;
+	border-bottom: 1px solid var(--rule);
+	outline: none;
+}
+.palette-input::placeholder {
+	color: var(--pencil);
+}
+.palette-list {
+	max-height: 320px;
+	overflow-y: auto;
+	padding: 0.25rem 0;
+}
+.palette-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.45rem 1rem;
+	font-size: 13px;
+	color: var(--graphite);
+	cursor: pointer;
+	transition: background 80ms;
+}
+.palette-item[data-selected="true"] {
+	background: var(--workbench);
+	color: var(--ink);
+}
+.palette-item:hover {
+	background: var(--workbench);
+}
+.palette-item-shortcut {
+	margin-left: auto;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--pencil);
+}
+.palette-empty {
+	padding: 1.5rem 1rem;
+	text-align: center;
+	font-size: 13px;
+	color: var(--pencil);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	::before,
+	::after {
+		animation-duration: 0.001ms !important;
+		transition-duration: 0.001ms !important;
+	}
 }

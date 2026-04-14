@@ -1,77 +1,105 @@
-import { Switch } from "@heroui/switch";
 import { useEffect, useState } from "react";
 
+import { Brandmark } from "@/components/Brandmark";
 import MermaidViewer from "@/components/MermaidViewer";
 
 export default function App() {
-	const [dark, setDark] = useState(false);
+	const [dark, setDark] = useState<boolean>(() => {
+		if (typeof window === "undefined") return false;
+		const saved = localStorage.getItem("viewerTheme");
+		if (saved === "dark") return true;
+		if (saved === "light") return false;
+		return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+	});
 
 	useEffect(() => {
 		const root = document.documentElement;
-
 		if (dark) root.classList.add("dark");
 		else root.classList.remove("dark");
+		localStorage.setItem("viewerTheme", dark ? "dark" : "light");
 	}, [dark]);
 
-	// Update document title based on theme for better UX
 	useEffect(() => {
-		document.title = `Mermaid Diagram Editor Online - Free Flowchart & Sequence Diagram Maker${dark ? " (Dark Mode)" : ""}`;
-	}, [dark]);
+		document.title = "Mermaid Viewer — diagrams as a workshop tool";
+	}, []);
 
 	return (
-		<div className="min-h-screen bg-background text-foreground">
-			{/* SEO-friendly header with proper semantic structure */}
-			<header className="border-b border-divider bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-				<div className="flex items-center justify-between max-w-7xl mx-auto p-6">
-					<div>
-						<h1 className="text-2xl font-semibold text-foreground">
-							Mermaid Diagram Editor
-						</h1>
-						<p className="text-sm text-foreground-500 mt-1">
-							Create beautiful diagrams with live preview
-						</p>
-					</div>
-					<div className="flex items-center gap-3">
-						<span className="text-sm text-foreground-600">Dark Mode</span>
-						<Switch
-							aria-label="Toggle dark mode"
-							isSelected={dark}
-							size="sm"
-							onValueChange={setDark}
-						/>
+		<div className="min-h-screen flex flex-col">
+			{/* Thin brandmark: drafting-stamp wordmark, single rule below.
+			    Sits flush on the page surface; no card, no shadow, no blur. */}
+			<header className="border-b border-[color:var(--rule)]">
+				<div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center gap-4">
+					<a
+						aria-label="Mermaid Viewer home"
+						className="font-display text-[1.05rem] tracking-tight text-[color:var(--ink)] flex items-center gap-1.5"
+						href="/"
+					>
+						<Brandmark className="text-[color:var(--copper)]" size={16} />
+						<span>mermaid</span>
+						<span className="text-[color:var(--graphite)]">.viewer</span>
+					</a>
+					<div className="ml-auto flex items-center gap-2">
+						<a
+							className="tool-btn !border-transparent hover:!border-[color:var(--chalk)]"
+							href="https://mermaid.js.org/intro/"
+							rel="noreferrer"
+							target="_blank"
+						>
+							syntax ↗
+						</a>
+						<a
+							className="tool-btn !border-transparent hover:!border-[color:var(--chalk)]"
+							href="https://github.com/dikrana/mermaid-viewer"
+							rel="noreferrer"
+							target="_blank"
+						>
+							source ↗
+						</a>
+						<button
+							aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+							className="tool-btn"
+							type="button"
+							onClick={() => setDark((d) => !d)}
+						>
+							{dark ? "☼ light" : "☾ dark"}
+						</button>
 					</div>
 				</div>
 			</header>
 
-			{/* Main content area */}
-			<main className="max-w-7xl mx-auto p-6">
-				{/* SEO content section - visible to search engines */}
-				<section className="mb-6 text-center">
-					<h2 className="sr-only">About Mermaid Diagram Editor</h2>
-					<p className="text-foreground-600 max-w-3xl mx-auto">
-						Create flowcharts, sequence diagrams, class diagrams, Gantt charts,
-						and more with our free online Mermaid diagram editor. Features live
-						preview, export to SVG/PNG, shareable URLs, and Monaco editor with
-						syntax highlighting.
-					</p>
-				</section>
-
-				{/* Main editor component */}
+			{/* Main: tool fills the page. No marketing chrome above it. */}
+			<main className="flex-1 max-w-[1400px] w-full mx-auto px-6 py-6">
 				<MermaidViewer dark={dark} />
-
-				{/* SEO footer content */}
-				<footer className="mt-12 pt-8 border-t border-divider">
-					<div className="text-center text-sm text-foreground-500">
-						<h3 className="font-medium mb-2">Supported Diagram Types</h3>
-						<p className="max-w-4xl mx-auto">
-							Flowcharts, Sequence Diagrams, Class Diagrams, State Diagrams,
-							Gantt Charts, Pie Charts, User Journey Maps, Git Graphs, Mindmaps,
-							Timeline Charts, Quadrant Charts, ER Diagrams, Architecture
-							Diagrams, Kanban Boards, and more.
-						</p>
-					</div>
-				</footer>
 			</main>
+
+			{/* SEO content kept visually hidden but indexable. Removed from the
+			    visual surface so the tool doesn't carry marketing weight. */}
+			<div className="sr-only">
+				<h1>Mermaid Diagram Editor</h1>
+				<p>
+					Create flowcharts, sequence diagrams, class diagrams, Gantt charts,
+					pie charts, user journey maps, git graphs, mindmaps, timeline charts,
+					quadrant charts, ER diagrams, architecture diagrams, kanban boards,
+					and more with this free online Mermaid editor. Live preview, export to
+					SVG and PNG, shareable URLs, Monaco editor with syntax highlighting.
+				</p>
+				<h2>Supported diagram types</h2>
+				<ul>
+					<li>Flowchart</li>
+					<li>Sequence diagram</li>
+					<li>Class diagram</li>
+					<li>State diagram</li>
+					<li>Gantt chart</li>
+					<li>Pie chart</li>
+					<li>User journey</li>
+					<li>Git graph</li>
+					<li>ER diagram</li>
+					<li>XY chart</li>
+					<li>Treemap</li>
+					<li>Kanban</li>
+					<li>Architecture diagram</li>
+				</ul>
+			</div>
 		</div>
 	);
 }
