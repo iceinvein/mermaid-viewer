@@ -6,7 +6,7 @@
   
   <!-- Main page -->
   <url>
-    <loc>https://dikrana.github.io/mermaid-viewer/</loc>
+    <loc>https://edit-mermaid-diagram.netlify.app/</loc>
     <lastmod>2024-01-01</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
@@ -14,7 +14,7 @@
   
   <!-- Example diagram URLs for better indexing -->
   <url>
-    <loc>https://dikrana.github.io/mermaid-viewer/#code=Zmxvd2NoYXJ0IFREKA0KICBBW1N0YXJ0XSAtLT4gQntJcyBpdCB3b3JraW5nP30NCiAgQiAtLSBZZXMgLS0+IENbU2hpcCBpdF0NCiAgQiAtLSBObyAgLS0+IERbRml4IGl0XQ0KICBEIC0tPiBC</loc>
+    <loc>https://edit-mermaid-diagram.netlify.app/#code=Zmxvd2NoYXJ0IFREKA0KICBBW1N0YXJ0XSAtLT4gQntJcyBpdCB3b3JraW5nP30NCiAgQiAtLSBZZXMgLS0+IENbU2hpcCBpdF0NCiAgQiAtLSBObyAgLS0+IERbRml4IGl0XQ0KICBEIC0tPiBC</loc>
     <lastmod>2024-01-01</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>

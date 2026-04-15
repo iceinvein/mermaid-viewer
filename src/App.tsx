@@ -49,7 +49,7 @@ export default function App() {
 						</a>
 						<a
 							className="tool-btn !border-transparent hover:!border-[color:var(--chalk)]"
-							href="https://github.com/dikrana/mermaid-viewer"
+							href="https://github.com/iceinvein/mermaid-viewer"
 							rel="noreferrer"
 							target="_blank"
 						>

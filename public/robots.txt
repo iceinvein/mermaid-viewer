@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://dikrana.github.io/mermaid-viewer/sitemap.xml
+Sitemap: https://edit-mermaid-diagram.netlify.app/sitemap.xml
 
 # Crawl-delay for polite crawling
 Crawl-delay: 1
