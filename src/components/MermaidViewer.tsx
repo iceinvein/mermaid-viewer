@@ -429,16 +429,6 @@ export default function MermaidViewer({ dark = false }: { dark?: boolean }) {
 		});
 	};
 
-	// Mermaid theme: wire to workshop palette via the shared tokens module
-	// so the hex values can't drift from globals.css or tailwind.config.js.
-	useEffect(() => {
-		mermaid.initialize({
-			startOnLoad: false,
-			theme: "base",
-			themeVariables: mermaidThemeFor(dark ? "dark" : "light"),
-		});
-	}, [dark]);
-
 	// Update SEO based on diagram type
 	useEffect(() => {
 		const detectDiagramType = (code: string): string => {
@@ -471,13 +461,21 @@ export default function MermaidViewer({ dark = false }: { dark?: boolean }) {
 		updateSEO(seoData);
 	}, [code]);
 
-	// Render Mermaid to SVG string (independent of the DOM container)
+	// Render Mermaid to SVG string. Initialize each pass so theme variables
+	// match the current `dark` value: mermaid stores config globally, and
+	// toggling theme without re-rendering leaves the previous palette baked
+	// into the SVG (light text on a now-light surface, etc).
 	useEffect(() => {
 		let cancelled = false;
 		setRendering(true);
 		async function render() {
 			try {
 				setError(null);
+				mermaid.initialize({
+					startOnLoad: false,
+					theme: "base",
+					themeVariables: mermaidThemeFor(dark ? "dark" : "light"),
+				});
 				const result = await mermaid.render(
 					`mmd-${Math.random().toString(36).slice(2)}`,
 					code,
@@ -499,7 +497,7 @@ export default function MermaidViewer({ dark = false }: { dark?: boolean }) {
 		return () => {
 			cancelled = true;
 		};
-	}, [code]);
+	}, [code, dark]);
 
 	// Inject SVG into container and apply sizing/zoom when it changes
 	useEffect(() => {
@@ -627,43 +625,107 @@ export default function MermaidViewer({ dark = false }: { dark?: boolean }) {
 
 	// Shared PNG renderer used by Export and Copy paths. Returns a Blob, or
 	// null if the canvas would exceed browser limits at the requested scale.
+	//
+	// Always renders against the light palette so the white-background output
+	// stays readable regardless of the UI theme. We re-initialize mermaid for
+	// the export pass and then restore the live theme afterwards.
 	async function renderPNGBlob(scale: number): Promise<Blob | null> {
-		const svgElement = containerRef.current?.querySelector("svg");
-		if (!svgElement) {
+		if (!svg) {
 			pushToast("Preview not ready.", "warn");
 			return null;
 		}
-		const { width: baseW, height: baseH } = getSvgSize(svg);
-		const width = Math.max(1, Math.round(baseW * scale));
-		const height = Math.max(1, Math.round(baseH * scale));
-		const MAX_CANVAS_SIZE = 16384;
-		if (width > MAX_CANVAS_SIZE || height > MAX_CANVAS_SIZE) {
-			pushToast(
-				`Canvas would be ${width}×${height}px (limit ${MAX_CANVAS_SIZE}). Re-rendering at 1×.`,
-				"warn",
-			);
-			if (scale === 1) return null;
-			return renderPNGBlob(1);
+
+		let exportSvgString = svg;
+		if (dark) {
+			try {
+				mermaid.initialize({
+					startOnLoad: false,
+					theme: "base",
+					themeVariables: mermaidThemeFor("light"),
+				});
+				const result = await mermaid.render(
+					`mmd-png-${Math.random().toString(36).slice(2)}`,
+					code,
+				);
+				exportSvgString = result.svg;
+			} catch (err) {
+				console.warn(
+					"Light-theme re-render for PNG failed; using live SVG:",
+					err,
+				);
+			} finally {
+				mermaid.initialize({
+					startOnLoad: false,
+					theme: "base",
+					themeVariables: mermaidThemeFor("dark"),
+				});
+			}
 		}
 
-		const cloned = svgElement.cloneNode(true) as SVGElement;
-		const foreignObjects = cloned.querySelectorAll("foreignObject");
-		foreignObjects.forEach((fo) => {
-			fo.querySelectorAll("div, span, p").forEach((el) => {
-				(el as HTMLElement).style.color = "#000000";
-			});
-		});
+		// Mount off-screen so html-to-image can resolve computed styles. The
+		// inline color/background here keeps foreignObject text from inheriting
+		// the dark `--ink` value when the document is in dark mode.
+		const parsed = new DOMParser().parseFromString(
+			exportSvgString,
+			"image/svg+xml",
+		);
+		if (
+			parsed.querySelector("parsererror") ||
+			parsed.documentElement.nodeName !== "svg"
+		) {
+			pushToast("Preview not ready.", "warn");
+			return null;
+		}
+		// Position off-screen but keep visible: html-to-image's serializer
+		// honors `visibility:hidden` and would emit a blank PNG otherwise.
+		const host = document.createElement("div");
+		host.style.cssText =
+			"position:fixed;left:-99999px;top:0;pointer-events:none;color:#231e1a;background:#ffffff;";
+		host.appendChild(document.importNode(parsed.documentElement, true));
+		document.body.appendChild(host);
 
-		const dataUrl = await htmlToImage.toPng(cloned as unknown as HTMLElement, {
-			width,
-			height,
-			backgroundColor: "#ffffff",
-			pixelRatio: 1,
-			cacheBust: true,
-			fontEmbedCSS: "",
-		});
-		const response = await fetch(dataUrl);
-		return await response.blob();
+		try {
+			const svgElement = host.querySelector("svg") as SVGElement | null;
+			if (!svgElement) {
+				pushToast("Preview not ready.", "warn");
+				return null;
+			}
+
+			const { width: baseW, height: baseH } = getSvgSize(exportSvgString);
+			const width = Math.max(1, Math.round(baseW * scale));
+			const height = Math.max(1, Math.round(baseH * scale));
+			const MAX_CANVAS_SIZE = 16384;
+			if (width > MAX_CANVAS_SIZE || height > MAX_CANVAS_SIZE) {
+				pushToast(
+					`Canvas would be ${width}×${height}px (limit ${MAX_CANVAS_SIZE}). Re-rendering at 1×.`,
+					"warn",
+				);
+				if (scale === 1) return null;
+				return renderPNGBlob(1);
+			}
+
+			svgElement.querySelectorAll("foreignObject").forEach((fo) => {
+				fo.querySelectorAll("div, span, p").forEach((el) => {
+					(el as HTMLElement).style.color = "#231e1a";
+				});
+			});
+
+			const dataUrl = await htmlToImage.toPng(
+				svgElement as unknown as HTMLElement,
+				{
+					width,
+					height,
+					backgroundColor: "#ffffff",
+					pixelRatio: 1,
+					cacheBust: true,
+					fontEmbedCSS: "",
+				},
+			);
+			const response = await fetch(dataUrl);
+			return await response.blob();
+		} finally {
+			document.body.removeChild(host);
+		}
 	}
 
 	function getSvgSize(svgText: string): { width: number; height: number } {
